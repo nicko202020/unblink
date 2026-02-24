@@ -1,34 +1,31 @@
 #!/usr/bin/env bash
 
-# tmux.dev.sh - Development tmux session with server + node
-
-# Source the library
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/tmux.lib.sh"
 
-# Configuration
 SESSION_NAME="unb-dev"
 PROJECT_DIR="$(tmux_get_project_dir)"
-NODE_CONFIG="node.dev.json"
+ENV_FILE="$PROJECT_DIR/.env"
 
-# Main script
+# Use air for hot reload if available, otherwise fall back to go run
+if command -v air >/dev/null 2>&1; then
+  BACKEND_CMD="air"
+else
+  BACKEND_CMD="go run ./cmd/server"
+fi
+
 if ! tmux has-session -t "=$SESSION_NAME" 2>/dev/null; then
-  echo "Creating and attaching to new tmux session '$SESSION_NAME'."
+  echo "Creating tmux session '$SESSION_NAME'"
 
-  # Initialize session (no windows)
   tmux_session_init "$SESSION_NAME"
-
-  # Configure session (mouse, keybindings)
   tmux_configure_session "$SESSION_NAME"
 
-  # Create all windows using the same function
-  tmux_create_window "$SESSION_NAME" "server" "$PROJECT_DIR" "go run ./cmd/server/main.go"
-  tmux_create_window "$SESSION_NAME" "node" "$PROJECT_DIR" "sleep 8 && go run ./cmd/node/main.go -config $NODE_CONFIG"
-  tmux_create_window "$SESSION_NAME" "app" "$PROJECT_DIR" "cd app && bun dev"
+  tmux_create_window "$SESSION_NAME" "app"     "$PROJECT_DIR" "cd app && bun run dev" "$ENV_FILE"
+  tmux_create_window "$SESSION_NAME" "backend" "$PROJECT_DIR" "$BACKEND_CMD"          "$ENV_FILE"
+  tmux_create_window "$SESSION_NAME" "node"    "$PROJECT_DIR" "sleep 8 && go run ./cmd/node/main.go -config node.dev.json" "$ENV_FILE"
 
-  # Attach to server window
-  tmux_session_attach "$SESSION_NAME" "server"
+  tmux_session_attach "$SESSION_NAME" "app"
 else
-  echo "Attaching to existing tmux session '$SESSION_NAME'."
+  echo "Attaching to existing session '$SESSION_NAME'"
   tmux attach-session -t "$SESSION_NAME"
 fi

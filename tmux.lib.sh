@@ -34,18 +34,19 @@ tmux_configure_session() {
   # Bind 'x' to kill current window
   tmux bind-key x kill-window
 
-  # Bind 'K' to kill all tmux sessions with confirmation
-  tmux bind-key K confirm-before -p "kill all tmux sessions? (y/n)" "run-shell 'tmux kill-server'"
+  # Bind 'K' to kill current session with confirmation
+  tmux bind-key K confirm-before -p "kill current session? (y/n)" "kill-session"
 }
 
 # Create a new window and run a command
 # If the session has an "__init__" window, renames it instead of creating a new one
-# Usage: tmux_create_window "$SESSION" "$WINDOW_NAME" "$WORKING_DIR" "$COMMAND"
+# Usage: tmux_create_window "$SESSION" "$WINDOW_NAME" "$WORKING_DIR" "$COMMAND" "$ENV_FILE"
 tmux_create_window() {
   local session=$1
   local window_name=$2
   local working_dir=$3
   local command=$4
+  local env_file=${5:-}
 
   # Check if there's an __init__ window to reuse
   if tmux list-windows -t "$session" -F "#{window_name}" 2>/dev/null | grep -q "^__init__$"; then
@@ -56,7 +57,21 @@ tmux_create_window() {
     tmux new-window -t "$session" -n "$window_name"
   fi
 
-  tmux send-keys -t "$session:$window_name" "cd \"$working_dir\" && $command" C-m
+  local tmpscript
+  tmpscript=$(mktemp /tmp/tmux_window_XXXXXX.sh)
+  {
+    echo "#!/usr/bin/env bash"
+    echo "cd $(printf '%q' "$working_dir")"
+    if [ -n "$env_file" ] && [ -f "$env_file" ]; then
+      echo "set -a"
+      echo "source $(printf '%q' "$env_file")"
+      echo "set +a"
+    fi
+    echo "$command"
+  } > "$tmpscript"
+  chmod +x "$tmpscript"
+
+  tmux send-keys -t "$session:$window_name" "bash $tmpscript" C-m
 }
 
 # Attach to session
