@@ -55,6 +55,9 @@ type Config struct {
 	// App directory for storage (frames, logs, etc.)
 	AppDir string `json:"app_dir"` // Path to application storage directory
 
+	// Frontend dist directory (for serving static files)
+	DistPath string `json:"dist_path,omitempty"` // Path to frontend dist directory (optional)
+
 	// Frame indexing settings
 	EnableIndexing bool `json:"enable_indexing"` // Enable frame indexing (default true). When true, batch manager is not created.
 }
@@ -283,6 +286,9 @@ func LoadConfigFromEnv() (*Config, error) {
 
 	// App directory
 	cfg.AppDir = getEnv("APP_DIR", "/data/unblink")
+
+	// Frontend dist directory (optional - if not set, frontend is not served)
+	cfg.DistPath = os.Getenv("DIST_PATH")
 
 	return cfg, nil
 }

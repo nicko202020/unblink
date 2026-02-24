@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/net/http2"
@@ -223,6 +225,16 @@ func main() {
 	// Register HTTP handlers for serving JPEG frames
 	storageService.RegisterHTTPHandlers(mux)
 
+	// Create final handler with optional frontend serving
+	var finalHandler http.Handler
+	if config.DistPath != "" {
+		// Wrap handler with frontend file server
+		finalHandler = withFrontend(handler, config.DistPath)
+		log.Printf("Serving frontend from: %s", config.DistPath)
+	} else {
+		finalHandler = handler
+	}
+
 	// Start server
 	log.Printf("Server starting on %s", config.ListenAddr)
 	log.Printf("  - Auth RPC: /auth.v1.AuthService/*")
@@ -238,7 +250,7 @@ func main() {
 	h2s := &http2.Server{}
 	srv := &http.Server{
 		Addr:    config.ListenAddr,
-		Handler: h2c.NewHandler(handler, h2s),
+		Handler: h2c.NewHandler(finalHandler, h2s),
 	}
 
 	if err := srv.ListenAndServe(); err != nil {
@@ -259,5 +271,35 @@ func withCORS(next http.Handler) http.Handler {
 		}
 
 		next.ServeHTTP(w, r)
+	})
+}
+
+// withFrontend wraps the API handler with frontend static file serving
+// Serves files from distPath for non-API requests, with SPA fallback
+func withFrontend(apiHandler http.Handler, distPath string) http.Handler {
+	fs := http.FileServer(http.Dir(distPath))
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// API routes - pass through to API handler
+		if strings.HasPrefix(r.URL.Path, "/auth.") ||
+			strings.HasPrefix(r.URL.Path, "/chat.") ||
+			strings.HasPrefix(r.URL.Path, "/service.") ||
+			strings.HasPrefix(r.URL.Path, "/webrtc.") ||
+			strings.HasPrefix(r.URL.Path, "/node/") ||
+			r.URL.Path == "/health" ||
+			strings.HasPrefix(r.URL.Path, "/storage/") {
+			apiHandler.ServeHTTP(w, r)
+			return
+		}
+
+		// Try to serve static file
+		targetPath := filepath.Join(distPath, r.URL.Path)
+		if _, err := os.Stat(targetPath); err == nil {
+			fs.ServeHTTP(w, r)
+			return
+		}
+
+		// SPA fallback - serve index.html for non-API routes
+		http.ServeFile(w, r, filepath.Join(distPath, "index.html"))
 	})
 }
