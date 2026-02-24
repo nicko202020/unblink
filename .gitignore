@@ -55,3 +55,6 @@ unb-server
 .note
 
 .direnv
+
+# Air hot reload
+tmp/server
