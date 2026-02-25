@@ -20,6 +20,7 @@ const (
 			user_id TEXT NOT NULL,
 			title TEXT NOT NULL,
 			system_prompt TEXT,
+			trait TEXT DEFAULT 'monitoring',
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
@@ -43,6 +44,8 @@ const (
 		CREATE INDEX IF NOT EXISTS idx_ui_blocks_conversation ON ui_blocks(conversation_id);
 		CREATE INDEX IF NOT EXISTS idx_conversations_updated ON conversations(updated_at DESC);
 		CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
+
+		ALTER TABLE conversations ADD COLUMN IF NOT EXISTS trait TEXT DEFAULT 'monitoring';
 	`
 
 	dropChatTablesSQL = `DROP TABLE IF EXISTS ui_blocks, messages, conversations CASCADE`
@@ -52,16 +55,17 @@ const (
 func (c *Client) CreateConversation(id, userID, title string) error {
 	// Always use DefaultSystemPrompt from chat package
 	insertSQL := `
-		INSERT INTO conversations (id, user_id, title, system_prompt)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO conversations (id, user_id, title, system_prompt, trait)
+		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (id) DO UPDATE SET
 			user_id = EXCLUDED.user_id,
 			title = EXCLUDED.title,
 			system_prompt = EXCLUDED.system_prompt,
+			trait = EXCLUDED.trait,
 			updated_at = CURRENT_TIMESTAMP
 	`
 
-	_, err := c.db.Exec(insertSQL, id, userID, title, DefaultSystemPrompt)
+	_, err := c.db.Exec(insertSQL, id, userID, title, DefaultSystemPrompt, "monitoring")
 	if err != nil {
 		return fmt.Errorf("failed to create conversation: %w", err)
 	}
@@ -328,6 +332,54 @@ func (c *Client) GetSystemPrompt(conversationID string) (string, error) {
 		return systemPrompt.String, nil
 	}
 	return "", nil
+}
+
+// GetTrait retrieves the trait for a conversation.
+func (c *Client) GetTrait(conversationID string) (string, error) {
+	var trait sql.NullString
+	err := c.db.QueryRow("SELECT trait FROM conversations WHERE id = $1", conversationID).Scan(&trait)
+	if err != nil {
+		return "", err
+	}
+	if trait.Valid && trait.String != "" {
+		return trait.String, nil
+	}
+	return "monitoring", nil
+}
+
+// SetTrait updates the trait for a conversation.
+func (c *Client) SetTrait(conversationID, trait string) error {
+	updateSQL := `
+		UPDATE conversations
+		SET
+			trait = $1,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2
+	`
+
+	_, err := c.db.Exec(updateSQL, trait, conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to set trait: %w", err)
+	}
+	return nil
+}
+
+// SetSystemPrompt updates the system prompt for a conversation.
+func (c *Client) SetSystemPrompt(conversationID, prompt string) error {
+	updateSQL := `
+		UPDATE conversations
+		SET
+			system_prompt = $1,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = $2
+	`
+
+	_, err := c.db.Exec(updateSQL, prompt, conversationID)
+	if err != nil {
+		return fmt.Errorf("failed to set system prompt: %w", err)
+	}
+
+	return nil
 }
 
 // GetMessagesBody retrieves all message bodies for a conversation

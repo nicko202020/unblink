@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -106,6 +107,7 @@ func main() {
 	// Register video search tool
 	videoSearchTool := tools.NewVideoSearchTool(dbClient)
 	chatService.RegisterTool(videoSearchTool)
+	chat.RegisterSetCharacterTool(chatService)
 
 	// Initialize JWT manager and auth interceptor
 	jwtManager := server.NewJWTManager(config.JWTSecret)
@@ -156,7 +158,7 @@ func main() {
 	// Create storage service
 	storageService := service.NewStorageService(dbClient, &service.StorageConfig{
 		StorageBaseDir: config.FramesBaseDir(),
-	})
+	}, jwtManager)
 
 	// Create HTTP handler with Connect RPC
 	mux := http.NewServeMux()
@@ -213,44 +215,54 @@ func main() {
 	log.Printf("Mounted WebRTCService at %s (with auth)", webrtcPath)
 
 	// Add CORS middleware
-	handler := withCORS(mux)
+	apiHandler := withCORS(mux)
 
 	// Get node server handler (includes /node/connect endpoint)
 	nodeHandler := nodeServer.GetHTTPHandler()
 
-	// Mount node endpoints on main mux
-	mux.Handle("/node/", nodeHandler)
-	mux.Handle("/health", nodeHandler)
+	// Create root mux for routing
+	rootMux := http.NewServeMux()
 
-	// Register HTTP handlers for serving JPEG frames
-	storageService.RegisterHTTPHandlers(mux)
+	// Mount API routes under /api/ (StripPrefix removes /api before passing to handler)
+	rootMux.Handle("/api/", http.StripPrefix("/api", apiHandler))
 
-	// Create final handler with optional frontend serving
-	var finalHandler http.Handler
+	// Node WebSocket endpoint (stay at root level for external connections)
+	rootMux.Handle("/node/", nodeHandler)
+
+	// Health check endpoint (stay at root level)
+	rootMux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, "OK")
+	})
+
+	// Register HTTP handlers for serving JPEG frames (stay at root level for direct access)
+	storageService.RegisterHTTPHandlers(rootMux)
+
+	// Serve frontend from dist directory if configured
 	if config.DistPath != "" {
-		// Wrap handler with frontend file server
-		finalHandler = withFrontend(handler, config.DistPath)
+		fs := http.FileServer(http.Dir(config.DistPath))
+		rootMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/" || r.URL.Path == "/index.html" {
+				serveInjectedIndex(w, config.DistPath)
+				return
+			}
+			fs.ServeHTTP(w, r)
+		})
 		log.Printf("Serving frontend from: %s", config.DistPath)
-	} else {
-		finalHandler = handler
 	}
 
 	// Start server
 	log.Printf("Server starting on %s", config.ListenAddr)
-	log.Printf("  - Auth RPC: /auth.v1.AuthService/*")
-	log.Printf("  - Chat RPC: /chat.v1.ChatService/*")
-	log.Printf("  - Service RPC: /service.v1.ServiceService/*")
-	log.Printf("  - Storage RPC: /service.v1.StorageService/*")
-	log.Printf("  - Event RPC: /service.v1.EventService/*")
-	log.Printf("  - WebRTC RPC: /webrtc.v1.WebRTCService/*")
+	log.Printf("  - API: /api/*")
 	log.Printf("  - Node WebSocket: /node/connect")
+	log.Printf("  - Health: /health")
 	log.Printf("  - Storage HTTP: /storage/{itemID}")
 
 	// Use h2c for HTTP/2 without TLS
 	h2s := &http2.Server{}
 	srv := &http.Server{
 		Addr:    config.ListenAddr,
-		Handler: h2c.NewHandler(finalHandler, h2s),
+		Handler: h2c.NewHandler(rootMux, h2s),
 	}
 
 	if err := srv.ListenAndServe(); err != nil {
@@ -263,7 +275,8 @@ func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, connect-protocol-version, connect-timeout-header, connect-accept-Encoding")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Connect-Protocol-Version, Connect-Timeout-Ms, X-Grpc-Web, X-User-Agent, Authorization")
+		w.Header().Set("Access-Control-Expose-Headers", "Grpc-Status, Grpc-Message, Content-Encoding")
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
@@ -274,32 +287,22 @@ func withCORS(next http.Handler) http.Handler {
 	})
 }
 
-// withFrontend wraps the API handler with frontend static file serving
-// Serves files from distPath for non-API requests, with SPA fallback
-func withFrontend(apiHandler http.Handler, distPath string) http.Handler {
-	fs := http.FileServer(http.Dir(distPath))
+func serveInjectedIndex(w http.ResponseWriter, distPath string) {
+	indexPath := filepath.Join(distPath, "index.html")
+	content, err := os.ReadFile(indexPath)
+	if err != nil {
+		http.Error(w, "index.html not found", http.StatusNotFound)
+		return
+	}
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// API routes - pass through to API handler
-		if strings.HasPrefix(r.URL.Path, "/auth.") ||
-			strings.HasPrefix(r.URL.Path, "/chat.") ||
-			strings.HasPrefix(r.URL.Path, "/service.") ||
-			strings.HasPrefix(r.URL.Path, "/webrtc.") ||
-			strings.HasPrefix(r.URL.Path, "/node/") ||
-			r.URL.Path == "/health" ||
-			strings.HasPrefix(r.URL.Path, "/storage/") {
-			apiHandler.ServeHTTP(w, r)
-			return
-		}
+	script := `<script>window.SERVER_META = {"servedBy":"go"};</script>`
+	html := string(content)
+	if idx := strings.Index(html, "</head>"); idx != -1 {
+		html = html[:idx] + script + html[idx:]
+	} else if idx := strings.Index(html, "</body>"); idx != -1 {
+		html = html[:idx] + script + html[idx:]
+	}
 
-		// Try to serve static file
-		targetPath := filepath.Join(distPath, r.URL.Path)
-		if _, err := os.Stat(targetPath); err == nil {
-			fs.ServeHTTP(w, r)
-			return
-		}
-
-		// SPA fallback - serve index.html for non-API routes
-		http.ServeFile(w, r, filepath.Join(distPath, "index.html"))
-	})
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write([]byte(html))
 }

@@ -84,6 +84,7 @@ type Database interface {
 	StoreUIBlock(id, conversationID, role, data string) error
 	ListUIBlocks(conversationID string) ([]*chatv1.UIBlock, error)
 	GetSystemPrompt(conversationID string) (string, error)
+	SetSystemPrompt(conversationID, prompt string) error
 	GetMessagesBody(conversationID string) ([]string, error)
 }
 

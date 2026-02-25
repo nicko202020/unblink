@@ -6,10 +6,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"unblink/database"
+	"unblink/server"
 	servicev1 "unblink/server/gen/service/v1"
 	"unblink/server/gen/service/v1/servicev1connect"
 	"unblink/server/internal/ctxutil"
@@ -22,14 +24,16 @@ type StorageConfig struct {
 
 // StorageService handles storage operations
 type StorageService struct {
-	db     *database.Client
-	config *StorageConfig
+	db         *database.Client
+	config     *StorageConfig
+	jwtManager *server.UserJWTManager
 }
 
-func NewStorageService(db *database.Client, config *StorageConfig) *StorageService {
+func NewStorageService(db *database.Client, config *StorageConfig, jwtManager *server.UserJWTManager) *StorageService {
 	return &StorageService{
-		db:     db,
-		config: config,
+		db:         db,
+		config:     config,
+		jwtManager: jwtManager,
 	}
 }
 
@@ -183,8 +187,13 @@ func (s *StorageService) RegisterHTTPHandlers(mux *http.ServeMux) {
 
 // serveStorage serves JPEG files via HTTP
 // URL format: /storage/{itemID}
-// NOTE: This HTTP endpoint does NOT have authentication (assuming auth is handled upstream, e.g., reverse proxy)
 func (s *StorageService) serveStorage(w http.ResponseWriter, r *http.Request) {
+	claims, err := s.authenticateStorageRequest(r)
+	if err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	// Extract itemID from path: /storage/{itemID}
 	path := r.URL.Path
 	if len(path) < 10 || path[:10] != "/storage/" {
@@ -205,6 +214,18 @@ func (s *StorageService) serveStorage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Enforce ownership check on direct HTTP storage access.
+	svc, err := s.db.GetService(entry.ServiceID)
+	if err != nil {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	hasAccess, err := s.db.CheckNodeAccess(svc.NodeId, claims.UserID)
+	if err != nil || !hasAccess {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+
 	// Check if file exists on disk
 	if _, err := os.Stat(entry.StoragePath); os.IsNotExist(err) {
 		http.NotFound(w, r)
@@ -215,4 +236,26 @@ func (s *StorageService) serveStorage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", entry.ContentType)
 	w.Header().Set("Cache-Control", "public, max-age=3600") // Cache for 1 hour
 	http.ServeFile(w, r, entry.StoragePath)
+}
+
+func (s *StorageService) authenticateStorageRequest(r *http.Request) (*server.UserJWTClaims, error) {
+	if s.jwtManager == nil {
+		return nil, fmt.Errorf("jwt manager is required")
+	}
+
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		return nil, fmt.Errorf("missing authorization header")
+	}
+
+	token := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+	if token == "" {
+		return nil, fmt.Errorf("missing bearer token")
+	}
+
+	claims, err := s.jwtManager.ValidateToken(token)
+	if err != nil {
+		return nil, err
+	}
+	return claims, nil
 }

@@ -25,6 +25,7 @@ type MessageSaver interface {
 	saveUIBlock(block *chatv1.UIBlock) (*chatv1.UIBlock, error)
 	getConversationHistory(conversationID string) ([]openai.ChatCompletionMessageParamUnion, error)
 	getSystemPrompt(conversationID string) (string, error)
+	getTrait(conversationID string) string
 }
 
 // AILoopConfig contains the configuration for running the AI loop.
@@ -38,6 +39,34 @@ type AILoopConfig struct {
 // AILoopResult contains the result of running the AI loop.
 type AILoopResult struct {
 	// Can be extended if needed
+}
+
+const maxToolOutputLength = 10000
+
+func truncateOutput(s string) string {
+	if len(s) > maxToolOutputLength {
+		return s[:maxToolOutputLength] + fmt.Sprintf("\n\n... (truncated %d bytes)", len(s)-maxToolOutputLength)
+	}
+	return s
+}
+
+func parseReasoningEffort(effort string) openai.ReasoningEffort {
+	switch effort {
+	case "xhigh":
+		return openai.ReasoningEffortXhigh
+	case "high":
+		return openai.ReasoningEffortHigh
+	case "medium":
+		return openai.ReasoningEffortMedium
+	case "low":
+		return openai.ReasoningEffortLow
+	case "minimal":
+		return openai.ReasoningEffortMinimal
+	case "none":
+		return openai.ReasoningEffortNone
+	default:
+		return openai.ReasoningEffortNone
+	}
 }
 
 // RunAILoop executes the core AI loop with tool calling support.
@@ -59,17 +88,20 @@ func RunAILoop(
 		return nil, fmt.Errorf("failed to get history: %w", err)
 	}
 
-	// Get system prompt
-	systemPrompt, err := saver.getSystemPrompt(conversationID)
+	// Get system prompt character and trait, then build full system prompt.
+	systemPromptCharacter, err := saver.getSystemPrompt(conversationID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get system prompt: %w", err)
 	}
+	trait := saver.getTrait(conversationID)
+	reasoningEffort := GetTraitReasoningEffort(trait)
+	systemPrompt := BuildSystemPrompt(trait, systemPromptCharacter)
 
 	// Get available tools from registry
 	tools := cfg.Tools.AsOpenAITools()
 
-	// Stream from OpenAI with tool call handling loop (max 5 passes)
-	const maxPasses = 5
+	// Stream from OpenAI with tool call handling loop.
+	const maxPasses = 50
 
 	for pass := 0; pass < maxPasses; pass++ {
 		log.Printf("[ChatService] Pass %d/%d", pass+1, maxPasses)
@@ -87,10 +119,10 @@ func RunAILoop(
 			}, messagesToSend...)
 		}
 
-		// Trim content to fit model context
+		// Trim content to fit model context.
 		if cfg.ContentTrimmer != nil {
-			originalCount := len(history)
-			trimmedHistory, err := cfg.ContentTrimmer.TrimToFit(history)
+			originalCount := len(messagesToSend)
+			trimmedHistory, err := cfg.ContentTrimmer.TrimToFit(messagesToSend)
 			if err != nil {
 				log.Printf("[ChatService] Warning: content trimming failed: %v", err)
 			} else {
@@ -103,9 +135,10 @@ func RunAILoop(
 
 		// Prepare OpenAI request with trimmed messages
 		openAIReq := openai.ChatCompletionNewParams{
-			Messages: messagesToSend,
-			Tools:    tools,
-			Model:    openai.ChatModel(cfg.Config.ChatOpenAIModel),
+			Messages:        messagesToSend,
+			Tools:           tools,
+			Model:           openai.ChatModel(cfg.Config.ChatOpenAIModel),
+			ReasoningEffort: parseReasoningEffort(reasoningEffort),
 		}
 
 		// Log messages being sent to OpenAI
@@ -230,11 +263,13 @@ func RunAILoop(
 		}
 
 		if err := streamResp.Err(); err != nil {
+			sendErrorUIBlock(conversationID, err.Error(), sender, saver)
 			return nil, fmt.Errorf("stream error: %w", err)
 		}
 
 		// Validate we have choices
 		if len(acc.Choices) == 0 {
+			sendErrorUIBlock(conversationID, "no response from model", sender, saver)
 			return nil, fmt.Errorf("no choices in accumulator response")
 		}
 
@@ -366,10 +401,12 @@ func RunAILoop(
 			var saveError error
 
 			// Execute the tool
-			result = cfg.Tools.Execute(ctx, toolCall.Name, toolCall.Arguments)
+			ctxWithConvID := context.WithValue(ctx, conversationIDKey, conversationID)
+			result = cfg.Tools.Execute(ctxWithConvID, toolCall.Name, toolCall.Arguments)
 
 			// Sanitize result for PostgreSQL JSONB compatibility
 			result = sanitizeForPostgres(result)
+			result = truncateOutput(result)
 
 			// Try to save UI block for tool completed state
 			toolCompletedData, _ := json.Marshal(map[string]any{

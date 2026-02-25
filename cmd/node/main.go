@@ -1,20 +1,46 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"unblink/node"
 )
 
 var configPath string
+var discover bool
+var discoverHTTP bool
+var discoverDebug bool
+var discoverTimeout time.Duration
+var discoverIfaces csvFlag
+
+type csvFlag []string
+
+func (c *csvFlag) String() string {
+	return fmt.Sprintf("%v", []string(*c))
+}
+
+func (c *csvFlag) Set(value string) error {
+	if value == "" {
+		return nil
+	}
+	*c = append(*c, value)
+	return nil
+}
 
 func init() {
 	flag.StringVar(&configPath, "config", "", "Path to config file")
+	flag.BoolVar(&discover, "discover", false, "Discover cameras on local network and exit")
+	flag.BoolVar(&discoverHTTP, "discover-http", true, "Include HTTP and MJPEG probing during discovery")
+	flag.BoolVar(&discoverDebug, "discover-debug", false, "Enable verbose stage-level discovery metadata")
+	flag.DurationVar(&discoverTimeout, "discover-timeout", 0, "Optional overall discovery timeout (0 disables)")
+	flag.Var(&discoverIfaces, "discover-iface", "Limit discovery to interface name (repeatable)")
 }
 
 func main() {
@@ -45,6 +71,11 @@ func main() {
 		}
 	}
 
+	if discover {
+		runDiscovery()
+		return
+	}
+
 	// Default: run node
 	configFile, err := node.Load(configPath)
 	if err != nil {
@@ -57,6 +88,20 @@ func main() {
 	log.Printf("[Node] Node ID: %s", configFile.Config.NodeID)
 
 	runNode(configFile)
+}
+
+func runDiscovery() {
+	log.Printf("[Node] Starting discovery...")
+	report, err := node.DiscoverCameras(context.Background(), node.DiscoveryOptions{
+		Timeout:            discoverTimeout,
+		IncludeHTTP:        discoverHTTP,
+		Debug:              discoverDebug,
+		InterfaceWhitelist: []string(discoverIfaces),
+	})
+	if err != nil {
+		log.Fatalf("[Node] Discovery failed: %v", err)
+	}
+	fmt.Println(node.DiscoveryReportJSON(report))
 }
 
 func runNode(configFile *node.ConfigFile) {
@@ -146,11 +191,18 @@ func printUsage() {
 	fmt.Println("  logout         Remove saved token")
 	fmt.Println()
 	fmt.Println("Options:")
-	fmt.Println("  -config <path>  Use custom config file (default: ~/.unblink/config.json)")
-	fmt.Println("  -h, --help     Show this help message")
+	fmt.Println("  -config <path>            Use custom config file (default: ~/.unblink/config.json)")
+	fmt.Println("  -discover                 Discover cameras on local network and exit")
+	fmt.Println("  -discover-http            Include HTTP and MJPEG probing during discovery")
+	fmt.Println("  -discover-timeout <dur>   Optional overall discovery timeout (default: disabled)")
+	fmt.Println("  -discover-iface <name>    Restrict to interface (repeatable)")
+	fmt.Println("  -discover-debug           Enable verbose discovery metadata")
+	fmt.Println("  -h, --help                Show this help message")
 	fmt.Println()
 	fmt.Println("Examples:")
 	fmt.Println("  node                    # Start node (default config)")
+	fmt.Println("  node -discover          # Scan local network for camera endpoints")
+	fmt.Println("  node -discover -discover-iface eth0")
 	fmt.Println("  node config show         # Show config")
 	fmt.Println("  node config delete       # Delete config (will regenerate with UUID)")
 	fmt.Println("  node -config ./my-config # Use custom config file")

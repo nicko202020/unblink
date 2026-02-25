@@ -215,7 +215,7 @@ func (c *Config) Save(path string) error {
 
 // LoadConfigFromEnv loads configuration from environment variables
 // Environment variables:
-//   - PORT or LISTEN_ADDR: Server listen address (default: :8080)
+//   - VITE_SERVER_API_PORT: Server listen address (default: :8080)
 //   - DATABASE_URL: PostgreSQL connection string
 //   - JWT_SECRET: JWT signing secret
 //   - DASHBOARD_URL: Dashboard URL for redirects
@@ -232,17 +232,14 @@ func (c *Config) Save(path string) error {
 //   - BRIDGE_IDLE_TIMEOUT_SEC: Bridge idle timeout (default: 300)
 //   - BRIDGE_MAX_RETRIES: Bridge max retries (default: 3)
 //   - ENABLE_INDEXING: Enable frame indexing (default: true)
-//   - APP_DIR: Application storage directory (default: /data/unblink)
+//   - CONFIG_DIR: Application storage directory (default: ~/.unblink)
 func LoadConfigFromEnv() (*Config, error) {
 	cfg := &Config{}
 
-	// Server settings
-	cfg.ListenAddr = getEnv("PORT", "")
-	if cfg.ListenAddr != "" && !strings.HasPrefix(cfg.ListenAddr, ":") {
+	// Server settings (web-agent style: single source of truth)
+	cfg.ListenAddr = getEnv("VITE_SERVER_API_PORT", "8080")
+	if !strings.HasPrefix(cfg.ListenAddr, ":") {
 		cfg.ListenAddr = ":" + cfg.ListenAddr
-	}
-	if cfg.ListenAddr == "" {
-		cfg.ListenAddr = getEnv("LISTEN_ADDR", ":8080")
 	}
 
 	// Dashboard URL
@@ -284,8 +281,8 @@ func LoadConfigFromEnv() (*Config, error) {
 	// Indexing
 	cfg.EnableIndexing = getEnvBool("ENABLE_INDEXING", true)
 
-	// App directory
-	cfg.AppDir = getEnv("APP_DIR", "/data/unblink")
+	// Configuration directory (storage root)
+	cfg.AppDir = getEnv("CONFIG_DIR", defaultConfigDir())
 
 	// Frontend dist directory (optional - if not set, frontend is not served)
 	cfg.DistPath = os.Getenv("DIST_PATH")
@@ -327,4 +324,12 @@ func getEnvBool(key string, defaultValue bool) bool {
 		}
 	}
 	return defaultValue
+}
+
+func defaultConfigDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "."
+	}
+	return filepath.Join(home, ".unblink")
 }

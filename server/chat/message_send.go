@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"connectrpc.com/connect"
 	"github.com/openai/openai-go/v3"
@@ -40,6 +42,9 @@ func (s *Service) SendMessage(ctx context.Context, req *connect.Request[chatv1.S
 		return connect.NewError(connect.CodeInternal, fmt.Errorf("failed to save user message: %w", err))
 	}
 
+	// Keep conversation titles useful for lists without requiring explicit rename.
+	s.maybeGenerateTitle(conversationID, content)
+
 	// Send and save UI block for user message
 	userUIBlockData, _ := json.Marshal(map[string]any{
 		"content": content,
@@ -73,6 +78,7 @@ func (s *Service) SendMessage(ctx context.Context, req *connect.Request[chatv1.S
 	}
 	_, err = RunAILoop(ctx, conversationID, stream, s, aiConfig)
 	if err != nil {
+		sendErrorUIBlock(conversationID, err.Error(), stream, s)
 		return connect.NewError(connect.CodeInternal, err)
 	}
 
@@ -177,4 +183,76 @@ func (s *Service) getConversationHistory(conversationID string) ([]openai.ChatCo
 
 func (s *Service) getSystemPrompt(conversationID string) (string, error) {
 	return s.db.GetSystemPrompt(conversationID)
+}
+
+func (s *Service) getTrait(_ string) string {
+	return DefaultTrait
+}
+
+// sendErrorUIBlock saves and streams an error UI block (best effort).
+func sendErrorUIBlock(conversationID, message string, sender ResponseSender, saver MessageSaver) {
+	data, _ := json.Marshal(map[string]any{"message": message})
+	block := &chatv1.UIBlock{
+		Id:             generateID(),
+		ConversationId: conversationID,
+		Role:           "error",
+		Data:           string(data),
+		CreatedAt:      timestamppb.New(time.Now()),
+	}
+	saved, err := saver.saveUIBlock(block)
+	if err != nil {
+		log.Printf("[ChatService] Failed to save error UI block: %v", err)
+		saved = block
+	}
+	_ = sender.Send(&chatv1.SendMessageResponse{
+		Event: &chatv1.SendMessageResponse_UiBlock{
+			UiBlock: saved,
+		},
+	})
+}
+
+func (s *Service) maybeGenerateTitle(conversationID, userContent string) {
+	msgs, err := s.db.ListMessages(conversationID)
+	if err != nil || len(msgs) != 1 {
+		return
+	}
+
+	tempTitle := strings.TrimSpace(userContent)
+	if utf8.RuneCountInString(tempTitle) > 60 {
+		runes := []rune(tempTitle)
+		tempTitle = string(runes[:60]) + "…"
+	}
+	if tempTitle != "" {
+		_ = s.db.UpdateConversation(conversationID, tempTitle)
+	}
+
+	// Async improved title generation.
+	go func() {
+		client := s.fastOpenai
+		if client == nil {
+			client = s.openai
+		}
+		if client == nil {
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+
+		prompt := fmt.Sprintf("Generate a short title (<=10 words) for this first message. Return only the title.\n\n%s", userContent)
+		resp, err := client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
+			Model: openai.ChatModel(s.cfg.FastOpenAIModel),
+			Messages: []openai.ChatCompletionMessageParamUnion{
+				openai.UserMessage(prompt),
+			},
+			MaxTokens: openai.Int(60),
+		})
+		if err != nil || len(resp.Choices) == 0 {
+			return
+		}
+		title := strings.TrimSpace(resp.Choices[0].Message.Content)
+		if title != "" {
+			_ = s.db.UpdateConversation(conversationID, title)
+		}
+	}()
 }

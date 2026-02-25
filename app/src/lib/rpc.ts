@@ -6,7 +6,19 @@ import { WebRTCService } from "@/gen/webrtc/v1/webrtc_pb";
 import { ServiceService } from "@/gen/service/v1/service_pb";
 import { EventService } from "@/gen/service/v1/event_pb";
 
-const BASE_URL = import.meta.env.SERVER_API_URL ?? `${window.location.protocol}//${window.location.hostname}:8080`;
+declare global {
+  interface Window {
+    SERVER_META?: {
+      servedBy: string;
+      version?: string;
+      timestamp?: string;
+    };
+  }
+}
+
+// Use /api when served by Go server, otherwise use full URL with /api suffix for dev
+const BASE_URL = window.SERVER_META ? '/api' : (import.meta.env.VITE_SERVER_API_URL || `${window.location.protocol}//${window.location.hostname}:${import.meta.env.VITE_SERVER_API_PORT}/api`);
+console.log("Using API base URL:", BASE_URL, window.SERVER_META);
 
 // Auth token storage
 const TOKEN_KEY = "auth_token";
@@ -30,14 +42,8 @@ const transport = createConnectTransport({
     (next) => async (req) => {
       // Add Authorization header if token exists
       const token = getToken();
-      console.log("[rpc interceptor] Token exists:", !!token);
-      console.log("[rpc interceptor] Token value:", token ? token.substring(0, 30) + "..." : null);
       if (token) {
         req.header.set("Authorization", `Bearer ${token}`);
-        console.log("[rpc interceptor] Authorization header set");
-        console.log("[rpc interceptor] All headers:", Array.from(req.header.entries()));
-      } else {
-        console.log("[rpc interceptor] No token found in localStorage");
       }
       return next(req);
     },

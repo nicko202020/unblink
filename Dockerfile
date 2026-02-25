@@ -42,7 +42,7 @@ COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 ENV PORT=8080
-ENV APP_DIR=/data/unblink
+ENV CONFIG_DIR=/data/unblink
 ENV DIST_PATH=/usr/src/app/dist
 EXPOSE 8080
 

@@ -8,6 +8,10 @@ services:
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /health
+    disk:
+      name: unblink-data
+      mountPath: /data/unblink
+      sizeGB: 10
     envVars:
       - key: DATABASE_URL
         sync: false
@@ -41,5 +45,5 @@ services:
         value: "3"
       - key: ENABLE_INDEXING
         value: "true"
-      - key: APP_DIR
+      - key: CONFIG_DIR
         value: /data/unblink
