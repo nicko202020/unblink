@@ -36,8 +36,21 @@ On Windows, run:
 Install from source:
 
 ```bash
-go install github.com/zapdos-labs/unblink/cmd/unblink-node@latest
+go install github.com/zapdos-labs/unblink/cmd/unblink-node@main
+
+# Make sure you have Go’s bin dir on PATH
 unblink-node
+
+# Or you can run
+# $(go env GOPATH)/bin/unblink-node
+```
+
+Uninstall:
+
+```bash
+rm -f "$(go env GOBIN)/unblink-node"
+# if GOBIN is empty, use:
+rm -f "$(go env GOPATH)/bin/unblink-node"
 ```
 
 On first run, authorize the node by opening the displayed URL in your browser.
