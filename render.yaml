@@ -3,15 +3,11 @@ services:
     name: unblink
     runtime: docker
     repo: https://github.com/zapdos-labs/unblink
-    plan: starter
+    plan: free
     autoDeploy: true
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /health
-    disk:
-      name: unblink-data
-      mountPath: /data/unblink
-      sizeGB: 10
     envVars:
       - key: DATABASE_URL
         sync: false
