@@ -42,5 +42,4 @@ docker-run: docker-build
 		port="$${VITE_SERVER_API_PORT:-8080}"; \
 		docker run --env-file <(env) \
 			-p "$$port:$$port" \
-			-e "DASHBOARD_URL=http://localhost:$$port" \
 			unblink:local'
