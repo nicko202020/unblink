@@ -40,8 +40,8 @@ On first run, authorize the node by opening the displayed URL in your browser.
 
 ## Features
 
-### Relay-Node Architecture
-- **Relay (Server)**: Publicly reachable server that manages nodes, handles authentication, and stores configuration
+### Server-Node Architecture
+- **Server**: Publicly reachable server that manages nodes, handles authentication, and stores configuration
 - **Node**: Private proxy that runs in your network and forwards traffic to local cameras (RTSP, MJPEG)
 
 ### AI-Powered Monitoring
