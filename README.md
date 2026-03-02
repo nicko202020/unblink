@@ -2,7 +2,7 @@
 
 AI-powered camera monitoring application with relay-node architecture and real-time video processing.
 
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/zapdos-labs/unblink-v2)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/zapdos-labs/unblink)
 
 ## Getting Started
 
@@ -11,7 +11,7 @@ The node runs locally and connects to the relay:
 
 ```bash
 # Install
-go install github.com/zapdos-labs/unblink-v2/cmd/unblink-node@latest
+go install github.com/zapdos-labs/unblink/cmd/unblink-node@latest
 
 # Run
 unblink-node

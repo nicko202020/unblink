@@ -35,7 +35,7 @@ delete-app-dir:
 
 # Docker commands for deployment
 docker-build:
-	docker build -t unblink-v2:local .
+	docker build -t unblink:local .
 
 docker-run: docker-build
 	docker run -p 8080:8080 \
@@ -48,4 +48,4 @@ docker-run: docker-build
 		-e VLM_OPENAI_MODEL="$(VLM_OPENAI_MODEL)" \
 		-e VLM_OPENAI_BASE_URL="$(VLM_OPENAI_BASE_URL)" \
 		-e VLM_OPENAI_API_KEY="$(VLM_OPENAI_API_KEY)" \
-		unblink-v2:local
+		unblink:local
