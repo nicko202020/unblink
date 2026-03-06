@@ -2,7 +2,7 @@ services:
   - type: web
     name: unblink
     runtime: docker
-    repo: https://github.com/zapdos-labs/unblink
+    repo: https://github.com/nicko202020/unblink
     plan: free
     autoDeploy: true
     dockerfilePath: ./Dockerfile
