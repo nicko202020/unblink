@@ -62,6 +62,8 @@ func NewBatchManager(client *FrameClient, batchSize int, storage *Storage, db *d
 			"Unsafe proximity events:",
 			"1. Worker has crossed or is within red laser boundary.",
 			"2. Worker is less than 2 meters from forklift.",
+			"Example scene description: ",
+			"Worker[1] beside forklift[4](RED LASER ON). Forklift[1](RED LASER OFF) stationary. Worker[3] walking towards Forklift[5](RED LASER ON)",
 		}, "\n"),
 		storage:          storage,
 		db:               db,
