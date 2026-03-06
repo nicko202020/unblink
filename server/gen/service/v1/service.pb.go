@@ -717,7 +717,7 @@ const file_service_v1_service_proto_rawDesc = "" +
 	"\rUpdateService\x12 .service.v1.UpdateServiceRequest\x1a!.service.v1.UpdateServiceResponse\x12T\n" +
 	"\rDeleteService\x12 .service.v1.DeleteServiceRequest\x1a!.service.v1.DeleteServiceResponse\x12`\n" +
 	"\x11AssociateUserNode\x12$.service.v1.AssociateUserNodeRequest\x1a%.service.v1.AssociateUserNodeResponse\x12T\n" +
-	"\rListUserNodes\x12 .service.v1.ListUserNodesRequest\x1a!.service.v1.ListUserNodesResponseB@Z>github.com/zapdos-labs/unblink/server/gen/service/v1;servicev1b\x06proto3"
+	"\rListUserNodes\x12 .service.v1.ListUserNodesRequest\x1a!.service.v1.ListUserNodesResponseB@Z>github.com/nicko202020/unblink/server/gen/service/v1;servicev1b\x06proto3"
 
 var (
 	file_service_v1_service_proto_rawDescOnce sync.Once

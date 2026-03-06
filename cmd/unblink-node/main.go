@@ -11,7 +11,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/zapdos-labs/unblink/node"
+	"github.com/nicko202020/unblink/node"
 )
 
 var configPath string

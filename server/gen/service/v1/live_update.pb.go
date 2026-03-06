@@ -296,7 +296,7 @@ const file_service_v1_live_update_proto_rawDesc = "" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x12\n" +
 	"\x04body\x18\x03 \x01(\tR\x04body2w\n" +
 	"\x11LiveUpdateService\x12b\n" +
-	"\x11StreamLiveUpdates\x12$.service.v1.StreamLiveUpdatesRequest\x1a%.service.v1.StreamLiveUpdatesResponse0\x01B@Z>github.com/zapdos-labs/unblink/server/gen/service/v1;servicev1b\x06proto3"
+	"\x11StreamLiveUpdates\x12$.service.v1.StreamLiveUpdatesRequest\x1a%.service.v1.StreamLiveUpdatesResponse0\x01B@Z>github.com/nicko202020/unblink/server/gen/service/v1;servicev1b\x06proto3"
 
 var (
 	file_service_v1_live_update_proto_rawDescOnce sync.Once

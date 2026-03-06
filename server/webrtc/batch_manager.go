@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/nicko202020/unblink/database"
 	servicev1 "github.com/nicko202020/unblink/server/gen/service/v1"
 	"github.com/nicko202020/unblink/server/internal/timeutil"
-	"github.com/zapdos-labs/unblink/database"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -54,16 +54,14 @@ func NewBatchManager(client *FrameClient, batchSize int, storage *Storage, db *d
 		baseInstruction: strings.Join([]string{
 			"You are a safety officer",
 			"Task: ",
-			"- Analyse these video frames for motion, action, and subtle details relating to worker's safety.",
+			"- Analyse these video frames for motion, action, and subtle details of workers and forklifts.",
+			"- Draw bounding boxes around red lasers boundary  if RED LASERS BOUNDARY = ON.",
+			"- Draw bounding boxes around forklift if RED LASERS BOUNDARY = OFF ",
 			"- Detect UP TO 10 important (forklifts, and workers) objects and return their bounding boxes in NORMALIZED 1000 COORDINATES (0=top/left, 1000=bottom/right).",
-			"- Bounding boxes for forklifts should be drawn around its red lasers which demarcate the unsafe proximity region around the forklift.",
-			"- Workers should be kept safe by maintaining a safe distance from the forklift",
-			"- Workers are in danger if they are in close proximity to the forklift",
-			"Output: ",
-			"- JSON repsonse",
-			"- Detailing the scene and the id of all important objects parsed for easier readbility",
-			"- Violation flag:",
-			"1. Worker has crossed laser boundaries and/or is about 1-2meters away from the forklift",
+			"- Prevent collision between workers and forklifts by monitoring for unsafe proximity events",
+			"Unsafe proximity events:",
+			"1. Worker has crossed or is within red laser boundary.",
+			"2. Worker is less than 2 meters from forklift.",
 		}, "\n"),
 		storage:          storage,
 		db:               db,

@@ -8,8 +8,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/zapdos-labs/unblink/database"
-	"github.com/zapdos-labs/unblink/server/internal/ctxutil"
+	"github.com/nicko202020/unblink/database"
+	"github.com/nicko202020/unblink/server/internal/ctxutil"
 )
 
 const (

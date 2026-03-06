@@ -6,9 +6,9 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/zapdos-labs/unblink/database"
-	authv1 "github.com/zapdos-labs/unblink/server/gen/chat/v1/auth"
-	"github.com/zapdos-labs/unblink/server/internal/ctxutil"
+	"github.com/nicko202020/unblink/database"
+	authv1 "github.com/nicko202020/unblink/server/gen/chat/v1/auth"
+	"github.com/nicko202020/unblink/server/internal/ctxutil"
 	"golang.org/x/crypto/bcrypt"
 
 	"connectrpc.com/connect"
