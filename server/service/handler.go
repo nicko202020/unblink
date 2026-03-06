@@ -8,9 +8,9 @@ import (
 
 	"github.com/AlexxIT/go2rtc/pkg/core"
 
-	"github.com/zapdos-labs/unblink/database"
-	"github.com/zapdos-labs/unblink/server"
-	"github.com/zapdos-labs/unblink/server/webrtc"
+	"github.com/nicko202020/unblink/database"
+	"github.com/nicko202020/unblink/server"
+	"github.com/nicko202020/unblink/server/webrtc"
 )
 
 // ServiceHandler encapsulates all components needed to handle an active service

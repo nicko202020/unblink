@@ -15,7 +15,7 @@ import (
 
 	"github.com/AlexxIT/go2rtc/pkg/core"
 
-	"github.com/zapdos-labs/unblink/database"
+	"github.com/nicko202020/unblink/database"
 )
 
 const partialClipSuffix = ".part.mp4"

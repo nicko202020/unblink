@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	servicev1 "github.com/nicko202020/unblink/server/gen/service/v1"
+	"github.com/nicko202020/unblink/server/internal/timeutil"
 	"github.com/zapdos-labs/unblink/database"
-	servicev1 "github.com/zapdos-labs/unblink/server/gen/service/v1"
-	"github.com/zapdos-labs/unblink/server/internal/timeutil"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -56,6 +56,7 @@ func NewBatchManager(client *FrameClient, batchSize int, storage *Storage, db *d
 			"Task: ",
 			"- Analyse these video frames for motion, action, and subtle details relating to worker's safety.",
 			"- Detect UP TO 10 important (forklifts, and workers) objects and return their bounding boxes in NORMALIZED 1000 COORDINATES (0=top/left, 1000=bottom/right).",
+			"- Bounding boxes for forklifts should be drawn around its red lasers which demarcate the unsafe proximity region around the forklift.",
 			"- Workers should be kept safe by maintaining a safe distance from the forklift",
 			"- Workers are in danger if they are in close proximity to the forklift",
 			"Output: ",

@@ -5,12 +5,13 @@
 package authv1connect
 
 import (
-	connect "connectrpc.com/connect"
 	context "context"
 	errors "errors"
-	auth "github.com/zapdos-labs/unblink/server/gen/chat/v1/auth"
 	http "net/http"
 	strings "strings"
+
+	connect "connectrpc.com/connect"
+	auth "github.com/nicko202020/unblink/server/gen/chat/v1/auth"
 )
 
 // This is a compile-time assertion to ensure that this generated file and the connect package are

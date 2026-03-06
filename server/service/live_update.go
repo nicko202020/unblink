@@ -8,9 +8,9 @@ import (
 
 	"connectrpc.com/connect"
 
-	servicev1 "github.com/zapdos-labs/unblink/server/gen/service/v1"
-	"github.com/zapdos-labs/unblink/server/gen/service/v1/servicev1connect"
-	"github.com/zapdos-labs/unblink/server/internal/ctxutil"
+	servicev1 "github.com/nicko202020/unblink/server/gen/service/v1"
+	"github.com/nicko202020/unblink/server/gen/service/v1/servicev1connect"
+	"github.com/nicko202020/unblink/server/internal/ctxutil"
 )
 
 type LiveUpdateDatabase interface {

@@ -9,11 +9,11 @@ import (
 	"strings"
 
 	"connectrpc.com/connect"
-	"github.com/zapdos-labs/unblink/database"
-	"github.com/zapdos-labs/unblink/server"
-	servicev1 "github.com/zapdos-labs/unblink/server/gen/service/v1"
-	"github.com/zapdos-labs/unblink/server/gen/service/v1/servicev1connect"
-	"github.com/zapdos-labs/unblink/server/internal/ctxutil"
+	"github.com/nicko202020/unblink/database"
+	"github.com/nicko202020/unblink/server"
+	servicev1 "github.com/nicko202020/unblink/server/gen/service/v1"
+	"github.com/nicko202020/unblink/server/gen/service/v1/servicev1connect"
+	"github.com/nicko202020/unblink/server/internal/ctxutil"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
