@@ -1,4 +1,4 @@
-module github.com/zapdos-labs/unblink
+module github.com/nicko202020/unblink
 
 go 1.25.4
 
