@@ -23,7 +23,7 @@ import (
 // VLMResponse represents the JSON response from VLM with structured output
 type VLMResponse struct {
 	Objects     []VLMObject `json:"objects" jsonschema_description:"All detected objects with bounding boxes and IDs"`
-	Description string      `json:"description" jsonschema_description:"Detailed analysis of motion, action, emotion, expressions, and subtle changes. Reference objects by their IDs in brackets, e.g., 'Worker[3] walking towards forklift[4]'."`
+	Description string      `json:"description" jsonschema_description:"Brief and information-rich analysis of vectorised motion, actions of workers and forklifts. Observe for unsafe proxmity events. Reference objects by ID in brackets. Scene description should be brief yet information rich e.g., 'Worker[1] beside forklift[4](RED LASER ON). Forklift[1](RED LASER OFF) stationary. Worker[3] walking towards Forklift[5](RED LASER ON)'."`
 }
 
 type VLMObject struct {

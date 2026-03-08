@@ -64,6 +64,7 @@ func NewBatchManager(client *FrameClient, batchSize int, storage *Storage, db *d
 			"2. Worker is less than 2 meters from forklift.",
 			"Example scene description: ",
 			"Worker[1] beside forklift[4](RED LASER ON). Forklift[1](RED LASER OFF) stationary. Worker[3] walking towards Forklift[5](RED LASER ON)",
+			DIRECTION OF RELATIVE MOTION
 		}, "\n"),
 		storage:          storage,
 		db:               db,
@@ -163,15 +164,8 @@ func (m *BatchManager) sendBatch(serviceID string, frames []*Frame, previousResp
 			"PREVIOUS ANALYSIS (use for object tracking):",
 			previousResponse.Description,
 			"",
-			"IMPORTANT: Use NORMALIZED 1000 COORDINATES for all bounding boxes.",
-			"- Coordinates range from 0 to 1000",
-			"- 0 = top/left edge, 1000 = bottom/right edge",
-			"- For example: [250, 300, 750, 800] means 25%-75% horizontal and 30%-80% vertical",
-			"",
-			"Detect ALL objects in the current frame. For objects that match previous objects (same type, similar location), use their existing ID.",
-			"For new objects, assign new IDs (continue numbering from previous).",
-			"Focus on motion, action, emotion, facial expressions, and subtle details.",
-			"In the description, reference objects by their IDs in brackets, e.g., 'The person [3] is driving a red car [4]'.",
+			",
+
 		}, "\n")
 	}
 
